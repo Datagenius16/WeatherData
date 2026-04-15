@@ -6,7 +6,7 @@ from datetime import datetime
 # PAGE CONFIG - This makes it look like an app on your iPhone
 st.set_page_config(page_title="Terminal", layout="centered")
 
-st.markdown("<h2 style='text-align: center; color: #FF4B4B;'>🦅 WEATHER COMMAND</h2>", unsafe_content_usage=True)
+st.markdown("<h2 style='text-align: center; color: #FF4B4B;'>🦅 WEATHER COMMAND</h2>", unsafe_allow_html=True)
 
 # 1. THE TOGGLE: Only show what you're trading (Alphabetized)
 all_airports = [
