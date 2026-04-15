@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import requests
 
-st.set_page_config(page_title="Terminal V0.4", layout="centered")
+# PAGE CONFIG
+st.set_page_config(page_title="Terminal V0.4.1", layout="centered")
 
 st.markdown("<h2 style='text-align: center; color: #FF4B4B;'>🦅 WEATHER COMMAND</h2>", unsafe_allow_html=True)
 
@@ -17,17 +18,20 @@ except:
     st.error("🔑 API Key missing in Streamlit Secrets!")
     st.stop()
 
-# 3. THE HF ENGINE (ClimateSight Observations)
+# 3. THE HF ENGINE (ClimateSight 2026 Protocol)
 def get_climatesight_data(station):
-    # Using the direct observations endpoint for 1-minute data
-    url = f"https://api.climatesight.app/v1/stations/K{station.upper()}/observations"
+    # ClimateSight v2 requires lowercase IDs (e.g., klga)
+    station_id = f"k{station.lower()}"
+    url = f"https://www.climatesight.app/api/stations/{station_id}"
     headers = {"Authorization": f"Bearer {API_KEY}"}
     
     try:
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
-            return response.json() # Should be a list of observations
-        return []
+            # We grab the 'observations' list which contains OMO/HFM/ASOS
+            return response.json().get('observations', [])
+        else:
+            return []
     except:
         return []
 
@@ -38,21 +42,32 @@ for city in active_cities:
     with st.container():
         if obs and len(obs) > 0:
             latest = obs[0]
+            # ClimateSight reports in Celsius; we convert to Fahrenheit
             temp_f = round((latest['temp'] * 9/5) + 32, 1)
             
-            st.metric(label=f"📍 {city} ({latest.get('type', 'HF')})", value=f"{temp_f}°F")
-            st.caption(f"Last Obs: {latest['observed_at'][11:16]} UTC")
+            # BIG METRIC (Top of card)
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.metric(label=f"📍 {city} ({latest.get('type', 'OMO')})", value=f"{temp_f}°F")
+            with col2:
+                # Extracts HH:MM from the timestamp
+                time_display = latest['observed_at'][11:16] if 'observed_at' in latest else "N/A"
+                st.caption(f"Last Hit: {time_display} UTC")
+                st.caption(f"Status: Live Runway Feed")
 
-            with st.expander("View 1-Min Tape (OMO/HFM)"):
-                tape_data = []
-                for o in obs[:15]:
+            # THE TAPE (The scrolling 1-minute data)
+            with st.expander("View 1-Min Tape (OMO/HFM/ASOS)"):
+                tape_list = []
+                for o in obs[:12]: # Show the last 12 hits (approx 12 mins of data)
                     f_val = round((o['temp'] * 9/5) + 32, 1)
-                    tape_data.append({
-                        "Time (UTC)": o['observed_at'][11:16],
+                    tape_list.append({
+                        "Time (UTC)": o.get('observed_at', 'N/A')[11:16],
                         "Type": o.get('type', 'OMO'),
                         "Temp": f"{f_val}°F"
                     })
-                st.table(pd.DataFrame(tape_data))
+                st.table(pd.DataFrame(tape_list))
         else:
-            st.warning(f"Waiting for {city} live stream... Verify API Key if this persists.")
+            st.warning(f"Connecting to {city} HFM/OMO stream... (Check API key or station ID)")
         st.divider()
+
+st.caption("V0.4.1 - Institutional Datalink Locked")
